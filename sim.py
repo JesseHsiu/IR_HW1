@@ -9,10 +9,14 @@ import opencc
 import string  
 import re
 from types import *
+import sys
+import codecs
+import multiprocessing as mp
 
+# Logging from gensim
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
-########## CLASSES ##########
 
+########## CLASSES ##########
 class DocCorpus(object):
 	def __init__(self, texts, dict):
 		self.texts = texts
@@ -22,6 +26,25 @@ class DocCorpus(object):
 		for line in self.texts:
 			yield self.dict.doc2bow(line)
 
+class OriginDocs(object):
+	def __init__(self, dirname, outputDir):
+		self.dirname = dirname
+		self.outputDir = outputDir
+	def getOutputDir(self):
+		return self.outputDir
+
+	def simplifyAllDoc(self):
+		if not os.path.exists(self.outputDir):
+			os.makedirs(self.outputDir)
+		
+		pool = mp.Pool(processes=mp.cpu_count())
+		for x in os.listdir(self.dirname):
+			pool.apply_async(parseFile, args=(x,self.dirname,self.outputDir))
+		pool.close()
+		pool.join()
+		
+
+# Docs 
 class Docs(object):
 	def __init__(self, dirname, querys=None):
 		self.dirname = dirname
@@ -67,97 +90,86 @@ def simplify(text):
 
 def traditionalize(text):
  return opencc.convert(text, config='zhs2zht.ini').encode('utf8')
+
+def parseFile(filename, dirname, outputDir):
+		tree = ET.parse(os.path.join(dirname, filename))
+		root = tree.getroot()
 		
+		# Title
+		title_cuts = jieba.cut(simplify(root[0].attrib['title'].rstrip('\n')), cut_all=True)
+		
+		# Content
+		seg_list = None
+		if root[0][0].text != None:
+			seg_list = jieba.cut(simplify(root[0][0].text.rstrip('\n')), cut_all=True)
+		# Writing Segment files
+		with codecs.open(outputDir + "/" + os.path.basename(filename), "w", "utf-8") as f:
+			# Get news title.
+			for title in title_cuts:
+				if title != '':
+					f.write(title)
+					f.write(',')
+			# Content : if there is no content then skip.
+			if root[0][0].text != None:
+				for seg in seg_list:
+					if seg !='':
+						f.write(seg)
+						f.write(',')
+			f.closed
 
 if __name__ == '__main__':
-	
 
-	queryObject = QueryList('./data/query_story.xml')
-	querys = queryObject.getQuerys()
-	documents = Docs('./data/news_cuts/',querys)
-	dictionary = corpora.Dictionary(documents)
+	if len(sys.argv) == 5:
+		originDocs_Dir = sys.argv[1]
+		outputDocs_Dir = sys.argv[2]
+		queryFile = sys.argv[3]
+		resultFileName = sys.argv[4]
+		
+		print "->>Processing Origin Files"
+		# # Origin Docs
+		originDocs = OriginDocs(originDocs_Dir, outputDocs_Dir)
+		originDocs.simplifyAllDoc();
+		print "->>Load QueryFile"
+		# Load QueryFile
+		queryObject = QueryList(queryFile)
+		querys = queryObject.getQuerys()
 
-	once_ids = [tokenid for tokenid, docfreq in dictionary.dfs.iteritems() if docfreq <= 20]
-	dictionary.filter_tokens(once_ids)
+		# Load Merge(Docs, QueryFile)
+		documents = Docs(outputDocs_Dir,querys)
+		# Build Dict
+		dictionary = corpora.Dictionary(documents)
+		once_ids = [tokenid for tokenid, docfreq in dictionary.dfs.iteritems() if docfreq <= 20]
+		dictionary.filter_tokens(once_ids)
+		dictionary.compactify()
+		# Save or not depends.
+		dictionary.save('./dict.dict')
+		# Use this if you saved before
+		# dictionary = corpora.Dictionary.load('./dict.dict')
 
-	dictionary.compactify()
+	    # TF-IDF calculation
+		dc = DocCorpus(documents, dictionary)
+		tfidf = models.TfidfModel(dc)
 
-	dictionary.save('./dict.dict')
-    # dictionary = Dictionary.load('./dict.dict')
-	dc = DocCorpus(documents, dictionary)
-	tfidf = models.TfidfModel(dc)
+		# Build DocSimilarityMatrix
+		index = Similarity(corpus=tfidf[dc], num_features=tfidf.num_nnz, output_prefix="shard",num_best=120)
+		index.save('./sim.sim')
+		# Use this if you saved before
+		# index = Similarity.load('./sim.sim')
 
-	index = Similarity(corpus=tfidf[dc], num_features=tfidf.num_nnz, output_prefix="shard",num_best=120)
-
-	with open('result.txt', 'w+') as f:
-		for query in querys:
-			result = index[dictionary.doc2bow(query)]
-			print "================="
-			for rank in result:
-				if rank[0] < documents.getDocCount():
-					print documents.getDocNameByID(rank[0]),
-					f.write(documents.getDocNameByID(rank[0]) + " ")
-			f.write("\n")
-    	
-
-	
-    		
-	
-	# print querys[0]
-
-	# for query in querys:
-	# 	dictionary = corpora.Dictionary.load('./dict.dict')
-	# 	# documents = Docs('./data/news_cuts/')
-
-	# 	index = Similarity.load('./sim.sim')
-	# 	# queryDict = corpora.Dictionary([query])
-	# 	# dictionary.merge_with(corpora.Dictionary([query]))
-	# 	# once_ids = [tokenid for tokenid, docfreq in dictionary.dfs.iteritems() if docfreq <= 20]
-	# 	# dictionary.filter_tokens(once_ids)
-
-	# 	# dictionary.compactify()
-	# 	index.close_shard()
-	# 	index.add_documents([dictionary.doc2bow(text) for text in [query]])
-
-
-	# 	print index.similarity_by_id(0)
-			
-		# for rank in index.similarity_by_id(len(os.listdir('./data/news_cuts/'))):
-		# 	print os.listdir('./data/news_cuts/')[]
-
-	# 	dictionary.merge_with(corpora.Dictionary([query]))
-	# 	once_ids = [tokenid for tokenid, docfreq in dictionary.dfs.iteritems() if docfreq <= 20]
-	# 	dictionary.filter_tokens(once_ids)
-	# 	dictionary.compactify()
-
-	# 	dc = DocCorpus(documents, dictionary)
-	# 	tfidf = models.TfidfModel(dc)
-	# 	index = Similarity(corpus=tfidf[dc], num_features=tfidf.num_nnz, output_prefix="shard",num_best=100)
-		# with open('result.txt', 'w+') as the_file:
-			# the_file.write(index.similarity_by_id(len(os.listdir('./data/news_cuts/'))+1))
-		# print "===========query==========="
-		# for rank in index.similarity_by_id(len(os.listdir('./data/news_cuts/'))):
-		# 	print os.listdir('./data/news_cuts/')[rank[0]]
-		# print "===========query==========="
-		# for i in index:
-		# 	print heapq.nlargest(5, enumerate(i), key=lambda x: x[1]) # Output is of the format (document index, score)
-	    
-	
-
-
-
-	# saving sim
-	# dictionary = corpora.Dictionary.load('./dict.dict')
-	# documents = Docs('./data/news_cuts/')
-	# # dictionary.merge_with(corpora.Dictionary([query]))
-	# once_ids = [tokenid for tokenid, docfreq in dictionary.dfs.iteritems() if docfreq <= 20]
-	# dictionary.filter_tokens(once_ids)
-	# dictionary.compactify()
-
-	# dc = DocCorpus(documents, dictionary)
-	# tfidf = models.TfidfModel(dc)
-	# index = Similarity(corpus=tfidf[dc], num_features=tfidf.num_nnz, output_prefix="shard",num_best=100)
-	# index.save('./sim.sim')
-
-
-
+		# Writing down result of query
+		with open(resultFileName, 'w+') as f:
+			queryid = 1
+			for query in querys:
+				result = index[dictionary.doc2bow(query)]
+				f.write("run,id,rel\n")
+				f.write("1,"+ str(queryid) +",")
+				queryid+=1
+				count = 0
+				for rank in result:
+					if int(rank[0]) < documents.getDocCount() and count < 100:
+						docName = documents.getDocNameByID(rank[0])
+						f.write(docName.split('.')[0] + " ")
+						count+=1
+				f.write("\n")
+	else:
+		print "Please use like 'python sim.py [originDocs_Dir] [outputDocs_Dir] [queryFile] [resultFileName]'"
