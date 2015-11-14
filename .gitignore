@@ -1,0 +1,9 @@
+data/*
+dict.dict
+shard.0
+shard.1
+shard.2
+shard.3
+shard.4
+*.model
+*.sim
