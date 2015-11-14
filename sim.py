@@ -1,17 +1,15 @@
 # -*- coding: UTF-8 -*-
-import numpy, heapq, os, logging
+import numpy, os, logging
 from gensim import similarities, corpora, models
 from gensim.similarities.docsim import Similarity
 import jieba
 import jieba.analyse
 import xml.etree.ElementTree as ET
 import opencc
-import string  
-import re
-from types import *
 import sys
 import codecs
 import multiprocessing as mp
+from types import *
 
 # Logging from gensim
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
