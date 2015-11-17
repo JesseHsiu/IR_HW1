@@ -184,11 +184,15 @@ class TimeManager(object):
 			self.time.append(timeFormat)
 			self.count.append(0)
 	def maxAmountMonths(self):
+		
+		returnMonths = []
 		chooseMonth = self.time[self.count.index(max(self.count))]
 		date_format = date(int(chooseMonth.split('-')[0]),int(chooseMonth.split('-')[1]),1)
-		date_format_later = date_format + relativedelta(months=+1)
-		date_format_previous = date_format + relativedelta(months=-1)
-		return [date_format_previous.isoformat()[:-3],date_format.isoformat()[:-3],date_format_later.isoformat()[:-3]]
+		
+		for x in xrange(-2,6):
+			date_tmp = date_format + relativedelta(months=x)
+			returnMonths.append(date_tmp.isoformat()[:-3])
+		return returnMonths
 		
 if __name__ == '__main__':
 
@@ -238,7 +242,6 @@ if __name__ == '__main__':
 			for query in querys:
 				result = index[dictionary.doc2bow(query)]
 				f.write("1,"+ str(queryid) +",")
-				queryid+=1
 				count = 0
 				for rank in result:
 					if int(rank[0]) < documents.getDocCount() and count < 100:
@@ -246,6 +249,7 @@ if __name__ == '__main__':
 						f.write(docName.split('.')[0] + " ")
 						count+=1
 				f.write("\n")
+				queryid+=1
 			# Run 2
 			queryid = 1
 			for query in querys:
@@ -253,7 +257,7 @@ if __name__ == '__main__':
 
 				# filter by time.
 				timeMgr = TimeManager()
-				for rank in result:
+				for rank in result[:50]:
 					if int(rank[0]) < documents.getDocCount():
 						docName = documents.getDocNameByID(rank[0])
 						
@@ -263,12 +267,10 @@ if __name__ == '__main__':
 
 				# f.write("run,id,rel\n")
 				f.write("2,"+ str(queryid) +",")
-				queryid+=1
 				count = 0
 
 				maxMonths = timeMgr.maxAmountMonths()
 				# print maxMonths
-
 				for rank in result:
 					if int(rank[0]) < documents.getDocCount() and count < 100:
 						docName = documents.getDocNameByID(rank[0])
@@ -281,5 +283,7 @@ if __name__ == '__main__':
 							f.write(docName.split('.')[0] + " ")
 							count+=1
 				f.write("\n")
+				queryid+=1
+				
 	else:
 		print "Please use like 'python sim.py [originDocs_Dir] [outputDocs_Dir] [queryFile] [resultFileName]'"
