@@ -12,8 +12,8 @@ if __name__ == '__main__':
 			root = tree.getroot()
 			# contain = True
 			print root[0].attrib['title']
-			if root[0][0].text != None:
-					print root[0][0].text
+			# if root[0][0].text != None:
+					# print root[0][0].text
 			# for keyword in keywords:
 				# if keyword.decode('utf8') not in root[0].attrib['title'].rstrip('\n'):
 				# 	contain = False

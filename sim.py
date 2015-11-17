@@ -10,6 +10,8 @@ import sys
 import codecs
 import multiprocessing as mp
 from types import *
+from datetime import date
+from dateutil.relativedelta import relativedelta
 
 # Logging from gensim
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
@@ -72,7 +74,7 @@ class QueryList(object):
 	def getQuerys(self):
 		tree = ET.parse(self.url)
 		root = tree.getroot()
-		
+
 		jieba.add_word('黄世铭')
 		jieba.add_word('特侦组')
 		jieba.add_word('黄色小鸭')
@@ -170,6 +172,33 @@ def parseFile(filename, dirname, outputDir):
 						f.write(',')
 			f.closed
 
+class TimeManager(object):
+	def __init__(self):
+		self.time = []
+		self.count = []
+	def addTime(self, time):
+		timeFormat = time[:-3]
+		if timeFormat in self.time:
+			self.count[self.time.index(timeFormat)]+=1
+		else :
+			self.time.append(timeFormat)
+			self.count.append(0)
+	def maxAmountMonths(self):
+		chooseMonth = self.time[self.count.index(max(self.count))]
+		date_format = date(int(chooseMonth.split('-')[0]),int(chooseMonth.split('-')[1]),1)
+		date_format_later = date_format + relativedelta(months=+1)
+		date_format_previous = date_format + relativedelta(months=-1)
+		return [date_format_previous.isoformat()[:-3],date_format.isoformat()[:-3],date_format_later.isoformat()[:-3]]
+
+# class TimeObject(object):
+# 	def __init__(self, time):
+# 		self.time = time
+# 		self.count = 0
+# 	def addCount(self):
+# 		self.count += 1
+		
+
+		
 if __name__ == '__main__':
 
 	if len(sys.argv) == 5:
@@ -180,50 +209,71 @@ if __name__ == '__main__':
 		
 		print "->>Processing Origin Files"
 		# # # Origin Docs
-		originDocs = OriginDocs(originDocs_Dir, outputDocs_Dir)
-		originDocs.simplifyAllDoc();
+		# originDocs = OriginDocs(originDocs_Dir, outputDocs_Dir)
+		# originDocs.simplifyAllDoc();
 		print "->>Load QueryFile"
 		# Load QueryFile
 		queryObject = QueryList(queryFile)
 		querys = queryObject.getQuerys()
 
-		# Load Merge(Docs, QueryFile)
+		# # Load Merge(Docs, QueryFile)
 		documents = Docs(outputDocs_Dir,querys)
 		
-		# Build Dict
-		dictionary = corpora.Dictionary(documents)
-		once_ids = [tokenid for tokenid, docfreq in dictionary.dfs.iteritems() if docfreq <= 20]
-		dictionary.filter_tokens(once_ids)
-		dictionary.compactify()
-		# Save or not depends.
-		dictionary.save('./dict.dict')
-		# Use this if you saved before
-		# dictionary = corpora.Dictionary.load('./dict.dict')
+		# # Build Dict
+		# dictionary = corpora.Dictionary(documents)
+		# once_ids = [tokenid for tokenid, docfreq in dictionary.dfs.iteritems() if docfreq <= 20]
+		# dictionary.filter_tokens(once_ids)
+		# dictionary.compactify()
+		# # Save or not depends.
+		# dictionary.save('./dict.dict')
+		# # Use this if you saved before
+		dictionary = corpora.Dictionary.load('./dict.dict')
 
-	    # TF-IDF calculation
-		dc = DocCorpus(documents, dictionary)
-		tfidf = models.TfidfModel(dc)
+	 #    # TF-IDF calculation
+		# dc = DocCorpus(documents, dictionary)
+		# tfidf = models.TfidfModel(dc)
 
-		# Build DocSimilarityMatrix
-		index = Similarity(corpus=tfidf[dc], num_features=tfidf.num_nnz, output_prefix="shard",num_best=120)
-		index.save('./sim.sim')
+		# # Build DocSimilarityMatrix
+		# index = Similarity(corpus=tfidf[dc], num_features=tfidf.num_nnz, output_prefix="shard",num_best=200)
+		# index.save('./sim.sim')
 		# Use this if you saved before
-		# index = Similarity.load('./sim.sim')
+		index = Similarity.load('./sim.sim')
 
 		# Writing down result of query
 		with open(resultFileName, 'w+') as f:
 			queryid = 1
 			for query in querys:
 				result = index[dictionary.doc2bow(query)]
+
+				# filter by time.
+				timeMgr = TimeManager()
+				for rank in result:
+					if int(rank[0]) < documents.getDocCount():
+						docName = documents.getDocNameByID(rank[0])
+						
+						tree = ET.parse(os.path.join(originDocs_Dir, docName))
+						root = tree.getroot()
+						timeMgr.addTime(root[0].attrib['date'])
+
 				f.write("run,id,rel\n")
 				f.write("1,"+ str(queryid) +",")
 				queryid+=1
 				count = 0
+
+				maxMonths = timeMgr.maxAmountMonths()
+				print maxMonths
+
 				for rank in result:
 					if int(rank[0]) < documents.getDocCount() and count < 100:
 						docName = documents.getDocNameByID(rank[0])
-						f.write(docName.split('.')[0] + " ")
-						count+=1
+						tree = ET.parse(os.path.join(originDocs_Dir, docName))
+						root = tree.getroot()
+						dateOfDoc = root[0].attrib['date']
+
+						if dateOfDoc[:-3] in maxMonths:
+							docName = documents.getDocNameByID(rank[0])
+							f.write(docName.split('.')[0] + " ")
+							count+=1
 				f.write("\n")
 	else:
 		print "Please use like 'python sim.py [originDocs_Dir] [outputDocs_Dir] [queryFile] [resultFileName]'"
