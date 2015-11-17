@@ -3,6 +3,7 @@ import xml.etree.ElementTree as ET
 import sys, os
 
 if __name__ == '__main__':
+	count = 1
 	if len(sys.argv) >= 3:
 		docsDir = sys.argv[1]
 		files = sys.argv[2:]
@@ -11,7 +12,8 @@ if __name__ == '__main__':
 			tree = ET.parse(os.path.join(docsDir, filename+".xml"))
 			root = tree.getroot()
 			# contain = True
-			print root[0].attrib['title']
+			print count,root[0].attrib['title']
+			count+=1
 			# if root[0][0].text != None:
 					# print root[0][0].text
 			# for keyword in keywords:

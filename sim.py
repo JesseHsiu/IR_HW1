@@ -199,7 +199,7 @@ if __name__ == '__main__':
 		resultFileName = sys.argv[4]
 		
 		print "->>Processing Origin Files"
-		# # # Origin Docs
+		# Origin Docs
 		originDocs = OriginDocs(originDocs_Dir, outputDocs_Dir)
 		originDocs.simplifyAllDoc();
 		print "->>Load QueryFile"
@@ -225,13 +225,28 @@ if __name__ == '__main__':
 		tfidf = models.TfidfModel(dc)
 
 		# Build DocSimilarityMatrix
-		index = Similarity(corpus=tfidf[dc], num_features=tfidf.num_nnz, output_prefix="shard",num_best=200)
+		index = Similarity(corpus=tfidf[dc], num_features=tfidf.num_nnz, output_prefix="shard",num_best=300)
 		index.save('./sim.sim')
 		# Use this if you saved before
 		# index = Similarity.load('./sim.sim')
 
 		# Writing down result of query
 		with open(resultFileName, 'w+') as f:
+			f.write("run,id,rel\n")
+			# Run 1
+			queryid = 1
+			for query in querys:
+				result = index[dictionary.doc2bow(query)]
+				f.write("1,"+ str(queryid) +",")
+				queryid+=1
+				count = 0
+				for rank in result:
+					if int(rank[0]) < documents.getDocCount() and count < 100:
+						docName = documents.getDocNameByID(rank[0])
+						f.write(docName.split('.')[0] + " ")
+						count+=1
+				f.write("\n")
+			# Run 2
 			queryid = 1
 			for query in querys:
 				result = index[dictionary.doc2bow(query)]
@@ -246,8 +261,8 @@ if __name__ == '__main__':
 						root = tree.getroot()
 						timeMgr.addTime(root[0].attrib['date'])
 
-				f.write("run,id,rel\n")
-				f.write("1,"+ str(queryid) +",")
+				# f.write("run,id,rel\n")
+				f.write("2,"+ str(queryid) +",")
 				queryid+=1
 				count = 0
 
