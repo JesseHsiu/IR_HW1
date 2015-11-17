@@ -37,6 +37,8 @@ class OriginDocs(object):
 		
 		pool = mp.Pool(processes=mp.cpu_count())
 		for x in os.listdir(self.dirname):
+			if x == ".DS_Store":
+				continue
 			pool.apply_async(parseFile, args=(x,self.dirname,self.outputDir))
 		pool.close()
 		pool.join()
@@ -47,9 +49,11 @@ class Docs(object):
 	def __init__(self, dirname, querys=None):
 		self.dirname = dirname
 		self.querys = querys
+		self.docList = os.listdir(self.dirname)
+		# self.docList.remove(".DS_Store")
 
 	def __iter__(self):
-		for fname in os.listdir(self.dirname):
+		for fname in self.docList:
 			with open(os.path.join(self.dirname, fname)) as f:
 				s = f.read()
 				yield s.split(',')
@@ -57,9 +61,9 @@ class Docs(object):
 			for query in self.querys:
 				yield query
 	def getDocCount(self):
-		return len(os.listdir(self.dirname))
+		return len(self.docList)
 	def getDocNameByID(self, docId):
-		return os.listdir(self.dirname)[docId]
+		return self.docList[docId]
 
 class QueryList(object):
 	# """docstring for QueryList"""
@@ -68,6 +72,20 @@ class QueryList(object):
 	def getQuerys(self):
 		tree = ET.parse(self.url)
 		root = tree.getroot()
+		
+		jieba.add_word('黄世铭')
+		jieba.add_word('特侦组')
+		jieba.add_word('黄色小鸭')
+		jieba.add_word('大统')
+		jieba.add_word('太阳花')
+		jieba.add_word('服贸协定')
+		jieba.add_word('服贸')
+		jieba.add_word('波卡')
+		jieba.add_word('台商')
+		jieba.add_word('北捷')
+		jieba.add_word('郑捷')
+		jieba.add_word('瓦斯')
+		jieba.add_word('气爆')
 
 		querys = []
 		for query in root:
@@ -87,19 +105,56 @@ def simplify(text):
  return opencc.convert(text, config='t2s.json')
 
 def traditionalize(text):
- return opencc.convert(text, config='zhs2zht.ini').encode('utf8')
+ return opencc.convert(text, config='zhs2zht.ini').encode('utf-8')
 
 def parseFile(filename, dirname, outputDir):
+
+		jieba.add_word('黄世铭')
+		jieba.add_word('特侦组')
+		jieba.add_word('黄色小鸭')
+		jieba.add_word('大统')
+		jieba.add_word('太阳花')
+		jieba.add_word('服贸协定')
+		jieba.add_word('服贸')
+		jieba.add_word('波卡')
+		jieba.add_word('台商')
+		jieba.add_word('北捷')
+		jieba.add_word('郑捷')
+		jieba.add_word('瓦斯')
+		jieba.add_word('气爆')
+		
 		tree = ET.parse(os.path.join(dirname, filename))
 		root = tree.getroot()
 		
+		# Noted that there is no 。 due to split by this punc.
+		puncs = ['，', '?', '@', '!', '$', '%', '『', '』', '「', '」', '＼', '｜', '？', ' ', '*', '(', ')', '~', '.', '[', ']', '\n','1','2','3','4','5','6','7','8','9','0']
+
+		title_Text = root[0].attrib['title']
+		title_Text = title_Text.encode('utf-8')
+		# remove useless puncs
+		for punc in puncs:
+			title_Text = title_Text.replace(punc,'')
+
+		title_Text_sentences = title_Text.split('。')
+
 		# Title
-		title_cuts = jieba.cut(simplify(root[0].attrib['title'].rstrip('\n')), cut_all=True)
+		title_cuts = []
+		for sentence in title_Text_sentences:
+			title_cuts.extend(jieba.cut(simplify(sentence), cut_all=True))	
 		
 		# Content
 		seg_list = None
 		if root[0][0].text != None:
-			seg_list = jieba.cut(simplify(root[0][0].text.rstrip('\n')), cut_all=True)
+			content_text = root[0][0].text
+			content_text = content_text.encode('utf-8')
+
+			for punc in puncs:
+				content_text = content_text.replace(punc,'')
+			content_text_sentences = content_text.split('。')
+			seg_list = []
+			for sentence in content_text_sentences:
+				seg_list.extend(jieba.cut(simplify(sentence), cut_all=True))
+				
 		# Writing Segment files
 		with codecs.open(outputDir + "/" + os.path.basename(filename), "w", "utf-8") as f:
 			# Get news title.
@@ -124,7 +179,7 @@ if __name__ == '__main__':
 		resultFileName = sys.argv[4]
 		
 		print "->>Processing Origin Files"
-		# # Origin Docs
+		# # # Origin Docs
 		originDocs = OriginDocs(originDocs_Dir, outputDocs_Dir)
 		originDocs.simplifyAllDoc();
 		print "->>Load QueryFile"
@@ -134,6 +189,7 @@ if __name__ == '__main__':
 
 		# Load Merge(Docs, QueryFile)
 		documents = Docs(outputDocs_Dir,querys)
+		
 		# Build Dict
 		dictionary = corpora.Dictionary(documents)
 		once_ids = [tokenid for tokenid, docfreq in dictionary.dfs.iteritems() if docfreq <= 20]

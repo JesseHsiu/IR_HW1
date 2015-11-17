@@ -18,13 +18,7 @@ if __name__ == '__main__':
 				if root[0][0].text != None:
 					if keyword.decode('utf8') not in root[0][0].text:
 						contain = False
-
 			if contain == True:
 				print filename
-
-			# print root[0].attrib['title'].rstrip('\n')
-			
-
-
 	else:
 		print "Please use like 'python filter.py [Docs_Dir] [filterKeyword] [] [] [] []........'"
