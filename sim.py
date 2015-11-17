@@ -189,15 +189,6 @@ class TimeManager(object):
 		date_format_later = date_format + relativedelta(months=+1)
 		date_format_previous = date_format + relativedelta(months=-1)
 		return [date_format_previous.isoformat()[:-3],date_format.isoformat()[:-3],date_format_later.isoformat()[:-3]]
-
-# class TimeObject(object):
-# 	def __init__(self, time):
-# 		self.time = time
-# 		self.count = 0
-# 	def addCount(self):
-# 		self.count += 1
-		
-
 		
 if __name__ == '__main__':
 
@@ -209,8 +200,8 @@ if __name__ == '__main__':
 		
 		print "->>Processing Origin Files"
 		# # # Origin Docs
-		# originDocs = OriginDocs(originDocs_Dir, outputDocs_Dir)
-		# originDocs.simplifyAllDoc();
+		originDocs = OriginDocs(originDocs_Dir, outputDocs_Dir)
+		originDocs.simplifyAllDoc();
 		print "->>Load QueryFile"
 		# Load QueryFile
 		queryObject = QueryList(queryFile)
@@ -220,24 +211,24 @@ if __name__ == '__main__':
 		documents = Docs(outputDocs_Dir,querys)
 		
 		# # Build Dict
-		# dictionary = corpora.Dictionary(documents)
-		# once_ids = [tokenid for tokenid, docfreq in dictionary.dfs.iteritems() if docfreq <= 20]
-		# dictionary.filter_tokens(once_ids)
-		# dictionary.compactify()
-		# # Save or not depends.
-		# dictionary.save('./dict.dict')
-		# # Use this if you saved before
-		dictionary = corpora.Dictionary.load('./dict.dict')
-
-	 #    # TF-IDF calculation
-		# dc = DocCorpus(documents, dictionary)
-		# tfidf = models.TfidfModel(dc)
-
-		# # Build DocSimilarityMatrix
-		# index = Similarity(corpus=tfidf[dc], num_features=tfidf.num_nnz, output_prefix="shard",num_best=200)
-		# index.save('./sim.sim')
+		dictionary = corpora.Dictionary(documents)
+		once_ids = [tokenid for tokenid, docfreq in dictionary.dfs.iteritems() if docfreq <= 20]
+		dictionary.filter_tokens(once_ids)
+		dictionary.compactify()
+		# Save or not depends.
+		dictionary.save('./dict.dict')
 		# Use this if you saved before
-		index = Similarity.load('./sim.sim')
+		# dictionary = corpora.Dictionary.load('./dict.dict')
+
+	    # TF-IDF calculation
+		dc = DocCorpus(documents, dictionary)
+		tfidf = models.TfidfModel(dc)
+
+		# Build DocSimilarityMatrix
+		index = Similarity(corpus=tfidf[dc], num_features=tfidf.num_nnz, output_prefix="shard",num_best=200)
+		index.save('./sim.sim')
+		# Use this if you saved before
+		# index = Similarity.load('./sim.sim')
 
 		# Writing down result of query
 		with open(resultFileName, 'w+') as f:
@@ -261,7 +252,7 @@ if __name__ == '__main__':
 				count = 0
 
 				maxMonths = timeMgr.maxAmountMonths()
-				print maxMonths
+				# print maxMonths
 
 				for rank in result:
 					if int(rank[0]) < documents.getDocCount() and count < 100:
