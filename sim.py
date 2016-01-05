@@ -228,7 +228,7 @@ if __name__ == '__main__':
 		dc = DocCorpus(documents, dictionary)
 		tfidf = models.TfidfModel(dc)
 
-		# Build DocSimilarityMatrix
+		# Build DocSimilarityMatrix  num_nnz = total number of non-zeroes in the BOW matrix
 		index = Similarity(corpus=tfidf[dc], num_features=tfidf.num_nnz, output_prefix="shard",num_best=300)
 		index.save('./sim.sim')
 		# Use this if you saved before
